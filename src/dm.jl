@@ -38,6 +38,22 @@ mutable struct DMStag{PetscLib, N} <: AbstractPetscDM{PetscLib}
     age::Int
 end
 
+"""
+    DMPlex{PetscLib}
+
+An unstructured mesh DM.
+
+Unlike [`DMDA`](@ref) and [`DMStag`](@ref) this carries no dimension
+parameter. Nothing in the plex API dispatches on dimension or returns a shape
+derived from it, and neither constructor can supply one honestly: `dim` is a
+runtime argument, and the two-argument form leaves the dimension unset until
+setup. Read it with `getdimension`.
+"""
+mutable struct DMPlex{PetscLib} <: AbstractPetscDM{PetscLib}
+    ptr::CDM
+    age::Int
+end
+
 # Adopt the pointer of a freshly created low-level handle. The handle carries
 # no finalizer, so ownership moves to the returned object.
 for T in (:DMDA, :DMStag)
@@ -45,6 +61,9 @@ for T in (:DMDA, :DMStag)
         return $T{PetscLib, N}(dm.ptr, dm.age)
     end
 end
+
+DMPlex{PetscLib}(dm::AbstractPetscDM{PetscLib}) where {PetscLib} =
+    DMPlex{PetscLib}(dm.ptr, dm.age)
 
 """
     narrow(dm::AbstractPetscDM)
@@ -60,8 +79,11 @@ pass the result into a function that specializes on it.
 """
 function narrow(dm::AbstractPetscDM{PetscLib}) where {PetscLib}
     dm.ptr == C_NULL && return dm
-    dim = Int(LibPETSc.DMGetDimension(PetscLib, dm))
     flavour = LibPETSc.DMGetType(PetscLib, dm)
+    # A plex carries no dimension parameter, and one built by the two-argument
+    # constructor has no dimension set yet, so do not ask for it.
+    flavour == "plex" && return DMPlex{PetscLib}(dm)
+    dim = Int(LibPETSc.DMGetDimension(PetscLib, dm))
     flavour == "da" && return DMDA{PetscLib, dim}(dm)
     flavour == "stag" && return DMStag{PetscLib, dim}(dm)
     return dm

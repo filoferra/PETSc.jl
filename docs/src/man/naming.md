@@ -208,11 +208,20 @@ abstract type AbstractPetscDM{PetscLib} end
 
 DMDA{PetscLib,N}   <: AbstractPetscDM{PetscLib}
 DMStag{PetscLib,N} <: AbstractPetscDM{PetscLib}
-DMPlex{PetscLib,N} <: AbstractPetscDM{PetscLib}
+DMPlex{PetscLib}   <: AbstractPetscDM{PetscLib}
 
 corners(dm::DMDA{L,N})   where {L,N} = …   # (lower, upper, size)
 corners(dm::DMStag{L,N}) where {L,N} = …   # (lower, upper, size, nextra)
 ```
+
+Dimension earns a parameter on the same test as flavour: only where a method
+dispatches on it or a return type is shaped by it. That holds for DMDA and
+DMStag, whose corners and creation paths are written per dimension. It does
+not hold for DMPlex, where no function in `dmplex.jl` dispatches on dimension
+or returns a shape derived from it, and where neither constructor could supply
+one honestly: `dim` arrives as a runtime argument, and `DMPlex(petsclib, comm)`
+leaves the dimension unset until setup. A plex reports its dimension through
+`getdimension`, which is what it is: a runtime property of the mesh.
 
 There are therefore **no type suffixes** on function names. `getcorners_dmstag` becomes a method of `corners`, not a separate function.
 

@@ -305,6 +305,8 @@ function DMPlex(
         setup!(dm)
     end
 
+    dm = DMPlex{PetscLib}(dm)
+
     if MPI.Comm_size(comm) == 1
         finalizer(destroy, dm)
     end
@@ -395,6 +397,8 @@ function DMPlex(
     if dmsetup
         setup!(dm)
     end
+
+    dm = DMPlex{PetscLib}(dm)
 
     if MPI.Comm_size(comm) == 1
         finalizer(destroy, dm)
@@ -863,7 +867,7 @@ Return a new DM that is a clone of `dm` (same topology, no fields or DS).
 function dmclone(dm::AbstractPetscDM{PetscLib}) where {PetscLib}
     newdm = LibPETSc.PetscDM(getlib(PetscLib))
     LibPETSc.DMClone(getlib(PetscLib), dm, newdm)
-    return newdm
+    return narrow(newdm)
 end
 
 """
@@ -1252,7 +1256,7 @@ LibPETSc.@for_petsc function dm_get_coarse(dm::AbstractPetscDM{$PetscLib})
     petsclib = getlib($PetscLib)
     cdm = LibPETSc.PetscDM(petsclib)
     LibPETSc.DMGetCoarseDM(petsclib, dm, cdm)
-    return cdm
+    return narrow(cdm)
 end
 
 """
