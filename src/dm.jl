@@ -273,7 +273,7 @@ by the `NTuple`s `xyzmin` and `xyzmax`. If `N` is less than the dimension of the
 $(_doc_external("DMDA/DMDASetUniformCoordinates"))
 """
 function setuniformcoordinates_dmda!(
-    da::PetscDM{PetscLib},
+    da::AbstractPetscDM{PetscLib},
     xyzmin::NTuple{N, Real},
     xyzmax::NTuple{N, Real},
 ) where {N, PetscLib}
@@ -345,7 +345,7 @@ function getlocalcoordinatearray(da::AbstractPetscDM{PetscLib}) where {PetscLib}
 end
 
 
-gettype(dm::PetscDM{PetscLib}) where {PetscLib} = LibPETSc.DMGetType(PetscLib,dm)
+gettype(dm::AbstractPetscDM{PetscLib}) where {PetscLib} = LibPETSc.DMGetType(PetscLib,dm)
 
 """
     getdimension(dm::AbstractPetscDM)
@@ -392,7 +392,7 @@ Transfer values from the local vector `x_L` to the global vector `x_G`.
 # External Links
 $(_doc_external("DM/DMLocalToGlobal"))
 """
-function dm_local_to_global(dm::PetscDM{PetscLib},
+function dm_local_to_global(dm::AbstractPetscDM{PetscLib},
                              x_L::AbstractPetscVec{PetscLib},
                              x_G::AbstractPetscVec{PetscLib}, 
                              mode=LibPETSc.INSERT_VALUES) where {PetscLib}
@@ -420,7 +420,7 @@ including ghost point values from neighboring processes.
 # External Links
 $(_doc_external("DM/DMGlobalToLocal"))
 """
-function dm_global_to_local(dm::PetscDM{PetscLib},
+function dm_global_to_local(dm::AbstractPetscDM{PetscLib},
                              x_G::AbstractPetscVec{PetscLib},
                              x_L::AbstractPetscVec{PetscLib}, 
                              mode=LibPETSc.INSERT_VALUES) where {PetscLib}

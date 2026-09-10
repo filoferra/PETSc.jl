@@ -344,7 +344,7 @@ function PetscDualSpaceDuplicate(petsclib::PetscLibType, sp::PetscDualSpace) end
 end 
 
 """
-	PetscDualSpaceGetDM(petsclib::PetscLibType,sp::PetscDualSpace, dm::PetscDM) 
+	PetscDualSpaceGetDM(petsclib::PetscLibType,sp::PetscDualSpace, dm::AbstractPetscDM) 
 Get the `DM` representing the reference cell of a `PetscDualSpace`
 
 Not Collective
@@ -362,9 +362,9 @@ Level: intermediate
 # External Links
 $(_doc_external("DM/PetscDualSpaceGetDM"))
 """
-function PetscDualSpaceGetDM(petsclib::PetscLibType, sp::PetscDualSpace, dm::PetscDM) end
+function PetscDualSpaceGetDM(petsclib::PetscLibType, sp::PetscDualSpace, dm::AbstractPetscDM) end
 
-@for_petsc function PetscDualSpaceGetDM(petsclib::$UnionPetscLib, sp::PetscDualSpace, dm::PetscDM )
+@for_petsc function PetscDualSpaceGetDM(petsclib::$UnionPetscLib, sp::PetscDualSpace, dm::AbstractPetscDM )
 	dm_ = Ref(dm.ptr)
 
     @chk ccall(
@@ -380,7 +380,7 @@ function PetscDualSpaceGetDM(petsclib::PetscLibType, sp::PetscDualSpace, dm::Pet
 end 
 
 """
-	PetscDualSpaceSetDM(petsclib::PetscLibType,sp::PetscDualSpace, dm::PetscDM) 
+	PetscDualSpaceSetDM(petsclib::PetscLibType,sp::PetscDualSpace, dm::AbstractPetscDM) 
 Get the `DM` representing the reference cell
 
 Not Collective
@@ -396,9 +396,9 @@ Level: intermediate
 # External Links
 $(_doc_external("DM/PetscDualSpaceSetDM"))
 """
-function PetscDualSpaceSetDM(petsclib::PetscLibType, sp::PetscDualSpace, dm::PetscDM) end
+function PetscDualSpaceSetDM(petsclib::PetscLibType, sp::PetscDualSpace, dm::AbstractPetscDM) end
 
-@for_petsc function PetscDualSpaceSetDM(petsclib::$UnionPetscLib, sp::PetscDualSpace, dm::PetscDM )
+@for_petsc function PetscDualSpaceSetDM(petsclib::$UnionPetscLib, sp::PetscDualSpace, dm::AbstractPetscDM )
 
     @chk ccall(
                (:PetscDualSpaceSetDM, $petsc_library),

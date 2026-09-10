@@ -115,8 +115,18 @@ function write_petsc_wrappers_version(petsc_dir::AbstractString; outdir::Abstrac
     return path
 end
 
-const CustomTypes = ["PetscVec","PetscMat","PetscDM", "PetscKSP", 
+const CustomTypes = ["PetscVec","PetscMat","PetscDM", "PetscKSP",
                     "PetscSNES","PetscOptions","IS","PF","TS","AO","Tao"]
+
+# Input arguments are declared with the abstract supertype so that DM flavours
+# (DMDA, DMStag, DMPlex) can dispatch. This applies to argument positions only:
+# documented return values, `Ref` element types and construction keep the
+# concrete type, since PETSc hands back a plain DM and an abstract type cannot
+# be instantiated.
+const WidenedInputTypes = Dict("PetscDM" => "AbstractPetscDM")
+
+widen_input_type(typename::AbstractString) =
+    get(WidenedInputTypes, typename, typename)
 
 # Remove entry from vector of strings
 remove_entry(x::Vector{String}, entry::String) = filter!(y -> y != entry, x)
@@ -436,7 +446,7 @@ function julia_function_doc_header(args::Vector{f_args}, function_name::String)
             num_out += 1 
         else
             str_in *= num_in > 0 ? ", " : ""
-            str_in *= "$(arg.name)::$(arg.typename)"
+            str_in *= "$(arg.name)::$(widen_input_type(arg.typename))"
             num_in += 1
         end
     end

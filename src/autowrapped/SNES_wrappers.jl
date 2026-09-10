@@ -4794,7 +4794,7 @@ function SNESGetKSP(petsclib::PetscLibType, snes::PetscSNES, ksp::PetscKSP) end
 end 
 
 """
-	SNESSetDM(petsclib::PetscLibType,snes::PetscSNES, dm::PetscDM) 
+	SNESSetDM(petsclib::PetscLibType,snes::PetscSNES, dm::AbstractPetscDM) 
 Sets the `DM` that may be used by some `SNES` nonlinear solvers or their underlying preconditioners
 
 Logically Collective
@@ -4810,9 +4810,9 @@ Level: intermediate
 # External Links
 $(_doc_external("SNES/SNESSetDM"))
 """
-function SNESSetDM(petsclib::PetscLibType, snes::PetscSNES, dm::PetscDM) end
+function SNESSetDM(petsclib::PetscLibType, snes::PetscSNES, dm::AbstractPetscDM) end
 
-@for_petsc function SNESSetDM(petsclib::$UnionPetscLib, snes::PetscSNES, dm::PetscDM )
+@for_petsc function SNESSetDM(petsclib::$UnionPetscLib, snes::PetscSNES, dm::AbstractPetscDM )
 
     @chk ccall(
                (:SNESSetDM, $petsc_library),
@@ -7608,14 +7608,14 @@ function SNESNewtonTRDCSetPostCheck(petsclib::PetscLibType, snes::PetscSNES, fun
 end 
 
 """
-	bs::PetscInt,nodesPerCell::PetscInt,subspaceOffsets::PetscInt,ghostBcNodes::PetscInt,globalBcNodes::PetscInt = SNESPatchSetDiscretisationInfo(petsclib::PetscLibType,snes::PetscSNES, nsubspaces::PetscInt, dms::PetscDM, cellNodeMap::PetscInt, numGhostBcs::PetscInt, numGlobalBcs::PetscInt) 
+	bs::PetscInt,nodesPerCell::PetscInt,subspaceOffsets::PetscInt,ghostBcNodes::PetscInt,globalBcNodes::PetscInt = SNESPatchSetDiscretisationInfo(petsclib::PetscLibType,snes::PetscSNES, nsubspaces::PetscInt, dms::AbstractPetscDM, cellNodeMap::PetscInt, numGhostBcs::PetscInt, numGlobalBcs::PetscInt) 
 
 # External Links
 $(_doc_external("SNES/SNESPatchSetDiscretisationInfo"))
 """
-function SNESPatchSetDiscretisationInfo(petsclib::PetscLibType, snes::PetscSNES, nsubspaces::PetscInt, dms::PetscDM, cellNodeMap::PetscInt, numGhostBcs::PetscInt, numGlobalBcs::PetscInt) end
+function SNESPatchSetDiscretisationInfo(petsclib::PetscLibType, snes::PetscSNES, nsubspaces::PetscInt, dms::AbstractPetscDM, cellNodeMap::PetscInt, numGhostBcs::PetscInt, numGlobalBcs::PetscInt) end
 
-@for_petsc function SNESPatchSetDiscretisationInfo(petsclib::$UnionPetscLib, snes::PetscSNES, nsubspaces::$PetscInt, dms::PetscDM, cellNodeMap::$PetscInt, numGhostBcs::$PetscInt, numGlobalBcs::$PetscInt )
+@for_petsc function SNESPatchSetDiscretisationInfo(petsclib::$UnionPetscLib, snes::PetscSNES, nsubspaces::$PetscInt, dms::AbstractPetscDM, cellNodeMap::$PetscInt, numGhostBcs::$PetscInt, numGlobalBcs::$PetscInt )
 	dms_ = Ref(dms.ptr)
 	bs_ = Ref{$PetscInt}()
 	nodesPerCell_ = Ref{$PetscInt}()

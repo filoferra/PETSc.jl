@@ -566,7 +566,7 @@ function PetscPartitionerMatPartitioningGetMatPartitioning(petsclib::PetscLibTyp
 end 
 
 """
-	PetscPartitionerDMPlexPartition(petsclib::PetscLibType,part::PetscPartitioner, dm::PetscDM, targetSection::PetscSection, partSection::PetscSection, partition::IS) 
+	PetscPartitionerDMPlexPartition(petsclib::PetscLibType,part::PetscPartitioner, dm::AbstractPetscDM, targetSection::PetscSection, partSection::PetscSection, partition::IS) 
 Create a non
 
 Collective
@@ -588,9 +588,9 @@ Level: developer
 # External Links
 $(_doc_external("DM/PetscPartitionerDMPlexPartition"))
 """
-function PetscPartitionerDMPlexPartition(petsclib::PetscLibType, part::PetscPartitioner, dm::PetscDM, targetSection::PetscSection, partSection::PetscSection, partition::IS) end
+function PetscPartitionerDMPlexPartition(petsclib::PetscLibType, part::PetscPartitioner, dm::AbstractPetscDM, targetSection::PetscSection, partSection::PetscSection, partition::IS) end
 
-@for_petsc function PetscPartitionerDMPlexPartition(petsclib::$UnionPetscLib, part::PetscPartitioner, dm::PetscDM, targetSection::PetscSection, partSection::PetscSection, partition::IS )
+@for_petsc function PetscPartitionerDMPlexPartition(petsclib::$UnionPetscLib, part::PetscPartitioner, dm::AbstractPetscDM, targetSection::PetscSection, partSection::PetscSection, partition::IS )
 	partition_ = Ref(partition.ptr)
 
     @chk ccall(

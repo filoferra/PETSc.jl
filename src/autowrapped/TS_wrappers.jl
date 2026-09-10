@@ -3352,7 +3352,7 @@ function TSGetIJacobian(petsclib::PetscLibType, ts::TS, Amat::PetscMat, Pmat::Pe
 end 
 
 """
-	TSSetDM(petsclib::PetscLibType,ts::TS, dm::PetscDM) 
+	TSSetDM(petsclib::PetscLibType,ts::TS, dm::AbstractPetscDM) 
 Sets the `DM` that may be used by some nonlinear solvers or preconditioners under the `TS`
 
 Logically Collective
@@ -3368,9 +3368,9 @@ Level: intermediate
 # External Links
 $(_doc_external("Ts/TSSetDM"))
 """
-function TSSetDM(petsclib::PetscLibType, ts::TS, dm::PetscDM) end
+function TSSetDM(petsclib::PetscLibType, ts::TS, dm::AbstractPetscDM) end
 
-@for_petsc function TSSetDM(petsclib::$UnionPetscLib, ts::TS, dm::PetscDM )
+@for_petsc function TSSetDM(petsclib::$UnionPetscLib, ts::TS, dm::AbstractPetscDM )
 
     @chk ccall(
                (:TSSetDM, $petsc_library),
@@ -3384,7 +3384,7 @@ function TSSetDM(petsclib::PetscLibType, ts::TS, dm::PetscDM) end
 end 
 
 """
-	dm::PetscDM = TSGetDM(petsclib::PetscLibType,ts::TS, dm::PetscDM) 
+	dm::PetscDM = TSGetDM(petsclib::PetscLibType,ts::TS, dm::AbstractPetscDM) 
 Gets the `DM` that may be used by some preconditioners
 
 Not Collective

@@ -23003,7 +23003,7 @@ function MatGetDM(petsclib::PetscLibType, A::PetscMat) end
 end 
 
 """
-	MatSetDM(petsclib::PetscLibType,A::PetscMat, dm::PetscDM) 
+	MatSetDM(petsclib::PetscLibType,A::PetscMat, dm::AbstractPetscDM) 
 Sets the `DM` defining the data layout of the matrix
 
 Not Collective
@@ -23028,9 +23028,9 @@ See also:
 # External Links
 $(_doc_external("DM/MatSetDM"))
 """
-function MatSetDM(petsclib::PetscLibType, A::PetscMat, dm::PetscDM) end
+function MatSetDM(petsclib::PetscLibType, A::PetscMat, dm::AbstractPetscDM) end
 
-@for_petsc function MatSetDM(petsclib::$UnionPetscLib, A::PetscMat, dm::PetscDM )
+@for_petsc function MatSetDM(petsclib::$UnionPetscLib, A::PetscMat, dm::AbstractPetscDM )
 
     @chk ccall(
                (:MatSetDM, $petsc_library),

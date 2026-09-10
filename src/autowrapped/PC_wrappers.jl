@@ -114,7 +114,7 @@ function PCSetFromOptions(petsclib::PetscLibType, pc::PC) end
 end 
 
 """
-	PCSetDM(petsclib::PetscLibType,pc::PC, dm::PetscDM) 
+	PCSetDM(petsclib::PetscLibType,pc::PC, dm::AbstractPetscDM) 
 Sets the `DM` that may be used by some preconditioners
 
 Logically Collective
@@ -130,9 +130,9 @@ Level: intermediate
 # External Links
 $(_doc_external("Ksp/PCSetDM"))
 """
-function PCSetDM(petsclib::PetscLibType, pc::PC, dm::PetscDM) end
+function PCSetDM(petsclib::PetscLibType, pc::PC, dm::AbstractPetscDM) end
 
-@for_petsc function PCSetDM(petsclib::$UnionPetscLib, pc::PC, dm::PetscDM )
+@for_petsc function PCSetDM(petsclib::$UnionPetscLib, pc::PC, dm::AbstractPetscDM )
 
     @chk ccall(
                (:PCSetDM, $petsc_library),
@@ -4991,9 +4991,9 @@ Level: advanced
 # External Links
 $(_doc_external("Ksp/PCTelescopeGetDM"))
 """
-function PCTelescopeGetDM(petsclib::PetscLibType, pc::PC, subdm::PetscDM) end
+function PCTelescopeGetDM(petsclib::PetscLibType, pc::PC, subdm::AbstractPetscDM) end
 
-@for_petsc function PCTelescopeGetDM(petsclib::$UnionPetscLib, pc::PC, subdm::PetscDM )
+@for_petsc function PCTelescopeGetDM(petsclib::$UnionPetscLib, pc::PC, subdm::AbstractPetscDM )
 	subdm_ = Ref{CDM}()
 
     @chk ccall(
@@ -9277,14 +9277,14 @@ function PCPatchSetConstructType(petsclib::PetscLibType, pc::PC, ctype::PCPatchC
 end 
 
 """
-	bs::PetscInt,nodesPerCell::PetscInt,subspaceOffsets::PetscInt,ghostBcNodes::PetscInt,globalBcNodes::PetscInt = PCPatchSetDiscretisationInfo(petsclib::PetscLibType,pc::PC, nsubspaces::PetscInt, dms::PetscDM, cellNodeMap::PetscInt, numGhostBcs::PetscInt, numGlobalBcs::PetscInt) 
+	bs::PetscInt,nodesPerCell::PetscInt,subspaceOffsets::PetscInt,ghostBcNodes::PetscInt,globalBcNodes::PetscInt = PCPatchSetDiscretisationInfo(petsclib::PetscLibType,pc::PC, nsubspaces::PetscInt, dms::AbstractPetscDM, cellNodeMap::PetscInt, numGhostBcs::PetscInt, numGlobalBcs::PetscInt) 
 
 # External Links
 $(_doc_external("Ksp/PCPatchSetDiscretisationInfo"))
 """
-function PCPatchSetDiscretisationInfo(petsclib::PetscLibType, pc::PC, nsubspaces::PetscInt, dms::PetscDM, cellNodeMap::PetscInt, numGhostBcs::PetscInt, numGlobalBcs::PetscInt) end
+function PCPatchSetDiscretisationInfo(petsclib::PetscLibType, pc::PC, nsubspaces::PetscInt, dms::AbstractPetscDM, cellNodeMap::PetscInt, numGhostBcs::PetscInt, numGlobalBcs::PetscInt) end
 
-@for_petsc function PCPatchSetDiscretisationInfo(petsclib::$UnionPetscLib, pc::PC, nsubspaces::$PetscInt, dms::PetscDM, cellNodeMap::$PetscInt, numGhostBcs::$PetscInt, numGlobalBcs::$PetscInt )
+@for_petsc function PCPatchSetDiscretisationInfo(petsclib::$UnionPetscLib, pc::PC, nsubspaces::$PetscInt, dms::AbstractPetscDM, cellNodeMap::$PetscInt, numGhostBcs::$PetscInt, numGlobalBcs::$PetscInt )
 	dms_ = Ref(dms.ptr)
 	bs_ = Ref{$PetscInt}()
 	nodesPerCell_ = Ref{$PetscInt}()

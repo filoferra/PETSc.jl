@@ -334,7 +334,7 @@ possibly negative ghost indices. This function handles the conversion automatica
 """
 function local_indices_dmstag end
 
-function local_indices_dmstag(dm::PetscDM{PetscLib}) where {PetscLib}
+function local_indices_dmstag(dm::AbstractPetscDM{PetscLib}) where {PetscLib}
     @assert PETSc.gettype(dm) == "stag" "DM must be of type DMStag" 
     # In Julia, indices in arrays start @ 1, whereas they can go negative in C
     x, y, z, m, n, p, nx, ny, nz = LibPETSc.DMStagGetCorners(PetscLib, dm)
@@ -387,7 +387,7 @@ handles the conversion automatically.
 
 [`local_indices_dmstag`](@ref) for the equivalent indices into a ghosted, local array.
 """
-function global_indices_dmstag(dm::PetscDM{PetscLib}) where {PetscLib}
+function global_indices_dmstag(dm::AbstractPetscDM{PetscLib}) where {PetscLib}
     @assert PETSc.gettype(dm) == "stag" "DM must be of type DMStag"
     x, y, z, m, n, p, nx, ny, nz = LibPETSc.DMStagGetCorners(PetscLib, dm)
 
@@ -407,12 +407,12 @@ function global_indices_dmstag(dm::PetscDM{PetscLib}) where {PetscLib}
 end
 
 """
-    slot::Int = DMStagDOF_Slot(dm::PetscDM{PetscLib}, loc::LibPETSc.DMStagStencilLocation, dof::Int) 
+    slot::Int = DMStagDOF_Slot(dm::AbstractPetscDM{PetscLib}, loc::LibPETSc.DMStagStencilLocation, dof::Int)
 
 Returns the location `slot` for a degree of freedom `dof` at a given stencil location `loc` in the DMStag `dm`.
 Note that the returned `slot` is 1-based for Julia compatibility.    
 """
-function DMStagDOF_Slot(dm::PetscDM{PetscLib}, loc::LibPETSc.DMStagStencilLocation, dof::Int) where {PetscLib} 
+function DMStagDOF_Slot(dm::AbstractPetscDM{PetscLib}, loc::LibPETSc.DMStagStencilLocation, dof::Int) where {PetscLib}
     @assert PETSc.gettype(dm) == "stag" "DM must be of type DMStag" 
 
     slot = LibPETSc.DMStagGetLocationSlot(getlib(PetscLib), dm, loc, PetscLib.PetscInt(dof))

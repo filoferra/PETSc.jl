@@ -4112,7 +4112,7 @@ function KSPGetConvergedReasonString(petsclib::PetscLibType, ksp::PetscKSP, strr
 end 
 
 """
-	KSPSetDM(petsclib::PetscLibType,ksp::PetscKSP, dm::PetscDM) 
+	KSPSetDM(petsclib::PetscLibType,ksp::PetscKSP, dm::AbstractPetscDM) 
 Sets the `DM` that may be used by some preconditioners and that may be used to construct the linear system
 
 Logically Collective
@@ -4128,9 +4128,9 @@ Level: intermediate
 # External Links
 $(_doc_external("KSP/KSPSetDM"))
 """
-function KSPSetDM(petsclib::PetscLibType, ksp::PetscKSP, dm::PetscDM) end
+function KSPSetDM(petsclib::PetscLibType, ksp::PetscKSP, dm::AbstractPetscDM) end
 
-@for_petsc function KSPSetDM(petsclib::$UnionPetscLib, ksp::PetscKSP, dm::PetscDM )
+@for_petsc function KSPSetDM(petsclib::$UnionPetscLib, ksp::PetscKSP, dm::AbstractPetscDM )
 
     @chk ccall(
                (:KSPSetDM, $petsc_library),

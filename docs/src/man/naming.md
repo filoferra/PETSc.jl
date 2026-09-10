@@ -737,6 +737,8 @@ Merging on a shared word is the error this document exists to prevent, and a mer
 | `check_petsc_wrappers_version` | `check_wrappers_version` |
 | `scalartype`, `inttype` | unchanged (closed list) |
 | `initialize`, `finalize` | unchanged, not exported ([§13](#13.-Exports)) |
+| `check_initialized` | unchanged (internal, see [§14](#14.-Errors)) |
+| `isdestroyable` | unchanged (internal) |
 
 #### Internals
 
@@ -798,6 +800,7 @@ The exceptions keep their underscore, because there it separates an inner worker
 | `library_info` | returns a `NamedTuple`, printed via `show` |
 | `audit_petsc_file` | `audit_file` |
 | `set_library!`, `unset_library!` | unchanged ([§7](#7.-Mutation) global-state clause) |
+| `audit_walk`, `audit_targets`, `audit_report`, `audit_creator`, `audit_destroyer`, `audit_callee`, `audit_argnames`, `audit_isbroadcast`, `audit_hasparseerror` | unchanged (internal) |
 
 `library_info` printed a report and returned `nothing`, so its name promised data it never handed back. 
 It now returns the values and gets a `show` method, which keeps the REPL output and makes the data reachable from tests:

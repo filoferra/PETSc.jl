@@ -2533,7 +2533,7 @@ function VecSetValuesSection(petsclib::PetscLibType, v::PetscVec, s::PetscSectio
 end 
 
 """
-	VecSetDM(petsclib::PetscLibType,v::PetscVec, dm::PetscDM) 
+	VecSetDM(petsclib::PetscLibType,v::PetscVec, dm::AbstractPetscDM) 
 Sets the `DM` defining the data layout of the vector.
 
 Not Collective
@@ -2556,9 +2556,9 @@ See also:
 # External Links
 $(_doc_external("Dm/VecSetDM"))
 """
-function VecSetDM(petsclib::PetscLibType, v::PetscVec, dm::PetscDM) end
+function VecSetDM(petsclib::PetscLibType, v::PetscVec, dm::AbstractPetscDM) end
 
-@for_petsc function VecSetDM(petsclib::$UnionPetscLib, v::PetscVec, dm::PetscDM )
+@for_petsc function VecSetDM(petsclib::$UnionPetscLib, v::PetscVec, dm::AbstractPetscDM )
 
     @chk ccall(
                (:VecSetDM, $petsc_library),
