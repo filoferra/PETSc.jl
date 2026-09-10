@@ -40,10 +40,14 @@ end
 
                 # Set the points
 
-                # NOTE: here I explicitly call the individual functions; below we use the convenience function DMDA
+                # NOTE: here we explicitly call the individual functions; below we use the convenience function DMDA
                 da = LibPETSc.DMDACreate1d(petsclib,comm, boundary_type, global_size, dof_per_node, stencil_width, points_per_proc)
                 PETSc.setfromoptions!(da)   # set options (if any)
                 PETSc.setup!(da)            # we need to call this to finalize the DMDA
+                # A low-level creator returns a bare handle. The flavour has to
+                # go back into the type before the high-level accessors apply,
+                # and the dimension is only known once setup! has run.
+                da = PETSc.narrow(da)
           
                 @test LibPETSc.DMGetType(petsclib,da) == "da"
                 @test LibPETSc.DMGetDimension(petsclib, da) == 1

@@ -14,9 +14,8 @@ import .LibPETSc: AbstractPetscDM, PetscDM, CDM
 # Both fields match PetscDM, so the conversions and the destroy guard defined
 # on AbstractPetscDM apply unchanged.
 #
-# TODO: DMPlex has no dimension parameter yet. Its constructors take `dim` as
-# a runtime value, and the two-argument form leaves the dimension unset until
-# later setup, so there is nothing to put in the type at construction.
+# Dimension is a parameter only where it shapes dispatch or a return type, so
+# DMDA and DMStag carry it and DMPlex does not.
 
 """
     DMDA{PetscLib, N}
@@ -193,7 +192,7 @@ end
 
 
 """
-    lower, upper, size = getcorners(da::AbstractDMDA)
+    lower, upper, size = getcorners(dm::Union{DMDA, DMStag})
 
 Returns a `NamedTuple` with the global indices (excluding ghost points) of the
 `lower` and `upper` corners as well as the `size`. 
@@ -202,19 +201,8 @@ Works for both a DMDA and DMStag object
 getcorners(dm::DMDA{PetscLib, N}) where {PetscLib, N} = getcorners_dmda(dm)
 getcorners(dm::DMStag{PetscLib, N}) where {PetscLib, N} = getcorners_dmstag(dm)
 
-function getcorners(dm::AbstractPetscDM{PetscLib}) where {PetscLib}
-    type = gettype(dm)
-    if type == "da"
-        return getcorners_dmda(dm)
-    elseif type == "stag"
-        return getcorners_dmstag(dm)
-    else
-        error("getcorners only works for DMDA and DMStag objects")
-    end
-end
-
 """
-    lower, upper, size = getghostcorners(da::AbstractDMDA)
+    lower, upper, size = getghostcorners(dm::Union{DMDA, DMStag})
 
 Returns a `NamedTuple` with the global indices (including ghost points) of the
 `lower` and `upper` corners as well as the `size`. 
@@ -222,17 +210,6 @@ Works for both a `DMDA` and `DMStag` object
 """
 getghostcorners(dm::DMDA{PetscLib, N}) where {PetscLib, N} = getghostcorners_dmda(dm)
 getghostcorners(dm::DMStag{PetscLib, N}) where {PetscLib, N} = getghostcorners_dmstag(dm)
-
-function getghostcorners(dm::AbstractPetscDM{PetscLib}) where {PetscLib}
-    type = gettype(dm)
-    if type == "da"
-        return getghostcorners_dmda(dm)
-    elseif type == "stag"
-        return getghostcorners_dmstag(dm)
-    else
-        error("getghostcorners only works for DMDA and DMStag objects")
-    end
-end
 
 """
     lower, upper, size = getghostcorners_dmda(da::AbstractDMDA)
