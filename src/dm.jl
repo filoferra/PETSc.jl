@@ -1,5 +1,72 @@
 import .LibPETSc: AbstractPetscDM, PetscDM, CDM
 
+# ============================================================================
+#   DM flavour types
+# ============================================================================
+# PETSc resolves DM flavour at runtime, by string comparison against
+# DMGetType. Carrying flavour and dimension as type parameters instead lets
+# ordinary dispatch select the method, and gives each method one concrete
+# return type.
+#
+# LibPETSc.PetscDM stays the low-level handle: DMCreate and the generated
+# creators have to return something before the flavour is known.
+#
+# Both fields match PetscDM, so the conversions and the destroy guard defined
+# on AbstractPetscDM apply unchanged.
+#
+# TODO: DMPlex has no dimension parameter yet. Its constructors take `dim` as
+# a runtime value, and the two-argument form leaves the dimension unset until
+# later setup, so there is nothing to put in the type at construction.
+
+"""
+    DMDA{PetscLib, N}
+
+An `N`-dimensional structured grid DM.
+"""
+mutable struct DMDA{PetscLib, N} <: AbstractPetscDM{PetscLib}
+    ptr::CDM
+    age::Int
+end
+
+"""
+    DMStag{PetscLib, N}
+
+An `N`-dimensional staggered grid DM.
+"""
+mutable struct DMStag{PetscLib, N} <: AbstractPetscDM{PetscLib}
+    ptr::CDM
+    age::Int
+end
+
+# Adopt the pointer of a freshly created low-level handle. The handle carries
+# no finalizer, so ownership moves to the returned object.
+for T in (:DMDA, :DMStag)
+    @eval function $T{PetscLib, N}(dm::AbstractPetscDM{PetscLib}) where {PetscLib, N}
+        return $T{PetscLib, N}(dm.ptr, dm.age)
+    end
+end
+
+"""
+    narrow(dm::AbstractPetscDM)
+
+Return `dm` as its flavoured type, querying PETSc for the flavour and the dimension. 
+
+The result shares the underlying PETSc object and gets no finalizer: 
+destroying either handle invalidates both. 
+Flavours without a type of their own come back unchanged.
+
+The return type is only known at runtime, so call this once at a boundary and
+pass the result into a function that specializes on it.
+"""
+function narrow(dm::AbstractPetscDM{PetscLib}) where {PetscLib}
+    dm.ptr == C_NULL && return dm
+    dim = Int(LibPETSc.DMGetDimension(PetscLib, dm))
+    flavour = LibPETSc.DMGetType(PetscLib, dm)
+    flavour == "da" && return DMDA{PetscLib, dim}(dm)
+    flavour == "stag" && return DMStag{PetscLib, dim}(dm)
+    return dm
+end
+
 # Custom display for REPL
 function Base.show(io::IO, v::AbstractPetscDM{PetscLib}) where {PetscLib}
     if v.ptr == C_NULL
@@ -110,6 +177,9 @@ Returns a `NamedTuple` with the global indices (excluding ghost points) of the
 `lower` and `upper` corners as well as the `size`. 
 Works for both a DMDA and DMStag object
 """
+getcorners(dm::DMDA{PetscLib, N}) where {PetscLib, N} = getcorners_dmda(dm)
+getcorners(dm::DMStag{PetscLib, N}) where {PetscLib, N} = getcorners_dmstag(dm)
+
 function getcorners(dm::AbstractPetscDM{PetscLib}) where {PetscLib}
     type = gettype(dm)
     if type == "da"
@@ -128,6 +198,9 @@ Returns a `NamedTuple` with the global indices (including ghost points) of the
 `lower` and `upper` corners as well as the `size`. 
 Works for both a `DMDA` and `DMStag` object
 """
+getghostcorners(dm::DMDA{PetscLib, N}) where {PetscLib, N} = getghostcorners_dmda(dm)
+getghostcorners(dm::DMStag{PetscLib, N}) where {PetscLib, N} = getghostcorners_dmstag(dm)
+
 function getghostcorners(dm::AbstractPetscDM{PetscLib}) where {PetscLib}
     type = gettype(dm)
     if type == "da"
@@ -273,11 +346,10 @@ by the `NTuple`s `xyzmin` and `xyzmax`. If `N` is less than the dimension of the
 $(_doc_external("DMDA/DMDASetUniformCoordinates"))
 """
 function setuniformcoordinates_dmda!(
-    da::AbstractPetscDM{PetscLib},
+    da::DMDA{PetscLib, D},
     xyzmin::NTuple{N, Real},
     xyzmax::NTuple{N, Real},
-) where {N, PetscLib}
-    @assert gettype(da) == "da" "setuniformcoordinates_dmda! only works for DMDA objects"
+) where {N, D, PetscLib}
     PetscReal = PetscLib.PetscReal
     xmin = PetscReal(xyzmin[1])
     xmax = PetscReal(xyzmax[1])

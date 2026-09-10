@@ -240,6 +240,19 @@ function work(ksp)
 end
 ```
 
+`narrow(dm)` is what performs that query. Accessors returning a DM PETSc owns
+(`getDM` on a KSP or a SNES) call it themselves, so the flavour is already in
+the type by the time it reaches the caller. It is also the escape hatch for a
+handle from a low-level creator.
+
+`narrow` returns a second handle onto the same PETSc object and attaches no
+finalizer, so destroying either one invalidates the other. Flavours with no
+type of their own come back unchanged.
+
+| v0.4 | v0.5 |
+|---|---|
+| (new) | `narrow` |
+
 ### 5.5 Abstract, callback and wrapper types
 
 **Abstract types** are `Abstract` followed by whatever [§5.2](#5.2-Prefixes) gives the concrete name, so the prefix decision is made once:

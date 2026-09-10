@@ -136,12 +136,14 @@ function DMDA(
         setup!(da)            
     end
 
+    dm = DMDA{PetscLib, N}(da)
+
     # We can only let the garbage collect finalize when we do not need to
     # worry about MPI (since garbage collection is asyncronous)
     if MPI.Comm_size(comm) == 1
-        finalizer(destroy, da)
+        finalizer(destroy, dm)
     end
-    return da
+    return dm
 end
 
 """
@@ -203,10 +205,9 @@ end
 
 Returns the linear indices associated with the degrees of freedom own by this MPI rank embedded in the ghost index space for the `dmda`
 """
-function localinteriorlinearindex(da::AbstractPetscDM{PetscLib}) where PetscLib
+function localinteriorlinearindex(da::DMDA{PetscLib, N}) where {PetscLib, N}
     # Determine the indices of the linear indices of the local part of the
     # matrix we own
-    @assert gettype(da) == "da" 
     ghost_corners = PETSc.getghostcorners(da)
     corners = PETSc.getcorners(da)
 

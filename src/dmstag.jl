@@ -159,28 +159,28 @@ function DMStag(
         setup!(da)            
     end
 
+    dm = DMStag{PetscLib, N}(da)
+
     # We can only let the garbage collect finalize when we do not need to
     # worry about MPI (since garbage collection is asyncronous)
     if MPI.Comm_size(comm) == 1
-        finalizer(destroy, da)
+        finalizer(destroy, dm)
     end
-    return da
+    return dm
 end
 
 
 function DMStag(
-    dm::AbstractPetscDM{PetscLib},
+    dm::DMStag{PetscLib, N},
     dof_per_node::Union{NTuple{2,Int},NTuple{3,Int},NTuple{4,Int}},
     dmsetfromoptions = true,
     dmsetup = true,
     options...,
-) where {PetscLib}
-    @assert  PETSc.gettype(dm) == "stag" "DM must be of type DMStag"
+) where {PetscLib, N}
+    # DMStagCreateCompatibleDMStag takes four dof counts regardless of the dimension, 
+    # and unspecified trailing levels are zero, so `dof_per_node` is not tied to N here.
     petsclib = getlib(PetscLib)
     PetscInt = petsclib.PetscInt
-    dmnew = PetscDM{PetscLib}(C_NULL, petsclib.age)
-
-    s = size(dof_per_node,1)
 
     dof_per_node_C = [0,0,0,0]
 
@@ -206,10 +206,11 @@ function DMStag(
 
     =#
     comm  = getcomm(dm);
+    dmnew = DMStag{PetscLib, N}(dmnew)
 
     if MPI.Comm_size(comm) == 1
         finalizer(destroy, dmnew)
-    end    
+    end
 
     return dmnew
 end
@@ -229,11 +230,10 @@ end
 Sets uniform coordinates for the DMStag `dm` in the range specified by `xyzmin` and `xyzmax`.
 """
 function setuniformcoordinates_stag!(
-    dm::AbstractPetscDM{PetscLib},
+    dm::DMStag{PetscLib, N},
     xyzmin::NTuple,
     xyzmax::NTuple,
-    ) where {PetscLib}
-    @assert PETSc.gettype(dm) == "stag" "DM must be of type DMStag"
+    ) where {PetscLib, N}
     PetscInt = PetscLib.PetscInt
     PetscScalar = PetscLib.PetscScalar
 
@@ -334,8 +334,7 @@ possibly negative ghost indices. This function handles the conversion automatica
 """
 function local_indices_dmstag end
 
-function local_indices_dmstag(dm::AbstractPetscDM{PetscLib}) where {PetscLib}
-    @assert PETSc.gettype(dm) == "stag" "DM must be of type DMStag" 
+function local_indices_dmstag(dm::DMStag{PetscLib, N}) where {PetscLib, N}
     # In Julia, indices in arrays start @ 1, whereas they can go negative in C
     x, y, z, m, n, p, nx, ny, nz = LibPETSc.DMStagGetCorners(PetscLib, dm)
     gx, gy, gz, _, _, _ = LibPETSc.DMStagGetGhostCorners(PetscLib, dm)
@@ -387,8 +386,7 @@ handles the conversion automatically.
 
 [`local_indices_dmstag`](@ref) for the equivalent indices into a ghosted, local array.
 """
-function global_indices_dmstag(dm::AbstractPetscDM{PetscLib}) where {PetscLib}
-    @assert PETSc.gettype(dm) == "stag" "DM must be of type DMStag"
+function global_indices_dmstag(dm::DMStag{PetscLib, N}) where {PetscLib, N}
     x, y, z, m, n, p, nx, ny, nz = LibPETSc.DMStagGetCorners(PetscLib, dm)
 
     return (
@@ -412,8 +410,7 @@ end
 Returns the location `slot` for a degree of freedom `dof` at a given stencil location `loc` in the DMStag `dm`.
 Note that the returned `slot` is 1-based for Julia compatibility.    
 """
-function DMStagDOF_Slot(dm::AbstractPetscDM{PetscLib}, loc::LibPETSc.DMStagStencilLocation, dof::Int) where {PetscLib}
-    @assert PETSc.gettype(dm) == "stag" "DM must be of type DMStag" 
+function DMStagDOF_Slot(dm::DMStag{PetscLib, N}, loc::LibPETSc.DMStagStencilLocation, dof::Int) where {PetscLib, N}
 
     slot = LibPETSc.DMStagGetLocationSlot(getlib(PetscLib), dm, loc, PetscLib.PetscInt(dof))
     return slot+1

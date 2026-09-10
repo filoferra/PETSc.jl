@@ -205,7 +205,7 @@ $(_doc_external("KSP/KSPGetDM"))
 """
 function getDM(ksp::AbstractPetscKSP{PetscLib}) where PetscLib
     dmda = LibPETSc.KSPGetDM(getlib(PetscLib),ksp)
-    return dmda
+    return narrow(dmda)
 end
 
 #

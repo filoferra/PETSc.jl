@@ -273,7 +273,7 @@ function getDM(
     snes::AbstractPetscSNES{PetscLib},
 ) where {PetscLib}
     dmda = LibPETSc.SNESGetDM(getlib(PetscLib), snes)
-    return dmda
+    return narrow(dmda)
 end
 
 
