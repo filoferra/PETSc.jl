@@ -425,6 +425,7 @@ Do **not** extend these. The word matches but the contract does not, and a silen
 | `Base.values` | PETSc "values" are a setter concept (`MatSetValues`), not a view of contents | `entries` |
 | `Base.view` | `PetscViewer` writes an object to a stream; it is not an array view | `petscview`, or `Base.show` |
 | `Base.setfield!` | Core builtin that writes a struct field; PETSc's attaches a finite element to a DM | `set_field!` |
+| `Base.empty` | Returns an empty collection of the same type; a DM is not a collection, and what v0.4 returned was a null handle rather than an empty DM | the type constructor, e.g. `DMStag{PetscLib, N}(C_NULL, petsclib.age)` |
 
 Additions need the same three columns: the name, the contract mismatch, and the replacement.
 

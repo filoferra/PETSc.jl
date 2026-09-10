@@ -258,14 +258,6 @@ setfromoptions!(dm::AbstractPetscDM{PetscLib}) where {PetscLib} = LibPETSc.DMSet
 
 
 """
-    empty(da::AbstractPetscDM)
-
-return an uninitialized `DMDA` struct.
-"""
-Base.empty(da::AbstractPetscDM{PetscLib}) where {PetscLib} = PetscDM{PetscLib}(C_NULL, da.age)
-
-
-"""
     v::PetscVec = DMLocalVec(dm::AbstractPetscDM{PetscLib}) where {PetscLib}
 
 Returns a local vector `v` from the `dm` object.
