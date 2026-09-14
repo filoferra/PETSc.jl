@@ -1256,6 +1256,10 @@ $(_doc_external("TS/TSSetRHSFunction"))
 set_rhs_function!(ts::AbstractTS, f!, r = nothing) =
     set_rhs_function!(f!, ts, r)
 
+# The context PETSc hands back is the `TS` the callback was registered on, but
+# `unsafe_pointer_to_objref` returns `Any`, so every field load through it is
+# untyped. The assertion below is what lets the callback body infer; the five
+# callbacks all do it for that reason.
 mutable struct TSSetRHSFunctionFn{PetscLib, PetscReal} end
 function (::TSSetRHSFunctionFn{PetscLib, PetscReal})(
     ts_ptr::CTS,
@@ -1264,7 +1268,7 @@ function (::TSSetRHSFunctionFn{PetscLib, PetscReal})(
     F_ptr::CVec,
     ctx::Ptr{Cvoid},
 ) where {PetscLib, PetscReal}
-    ts = unsafe_pointer_to_objref(ctx)
+    ts = unsafe_pointer_to_objref(ctx)::TS{PetscLib}
     actual_ts = TS{PetscLib}(ts_ptr, getlib(PetscLib).age)
     u = PetscVec{PetscLib}(u_ptr)
     F = PetscVec{PetscLib}(F_ptr)
@@ -1318,7 +1322,7 @@ function (::TSSetRHSJacobianFn{PetscLib, PetscReal})(
     P_ptr::CMat,
     ctx::Ptr{Cvoid},
 ) where {PetscLib, PetscReal}
-    ts = unsafe_pointer_to_objref(ctx)
+    ts = unsafe_pointer_to_objref(ctx)::TS{PetscLib}
     actual_ts = TS{PetscLib}(ts_ptr, getlib(PetscLib).age)
     u = PetscVec{PetscLib}(u_ptr)
     A = PetscMat{PetscLib}(A_ptr)
@@ -1380,7 +1384,7 @@ function (::TSSetIFunctionFn{PetscLib, PetscReal})(
     F_ptr::CVec,
     ctx::Ptr{Cvoid},
 ) where {PetscLib, PetscReal}
-    ts = unsafe_pointer_to_objref(ctx)
+    ts = unsafe_pointer_to_objref(ctx)::TS{PetscLib}
     actual_ts = TS{PetscLib}(ts_ptr, getlib(PetscLib).age)
     u = PetscVec{PetscLib}(u_ptr)
     u_t = PetscVec{PetscLib}(udot_ptr)
@@ -1437,7 +1441,7 @@ function (::TSSetIJacobianFn{PetscLib, PetscReal})(
     P_ptr::CMat,
     ctx::Ptr{Cvoid},
 ) where {PetscLib, PetscReal}
-    ts = unsafe_pointer_to_objref(ctx)
+    ts = unsafe_pointer_to_objref(ctx)::TS{PetscLib}
     actual_ts = TS{PetscLib}(ts_ptr, getlib(PetscLib).age)
     u = PetscVec{PetscLib}(u_ptr)
     u_t = PetscVec{PetscLib}(udot_ptr)
@@ -1514,7 +1518,7 @@ function (::TSMonitorSetFn{PetscLib, PetscInt, PetscReal})(
     u_ptr::CVec,
     ctx::Ptr{Cvoid},
 ) where {PetscLib, PetscInt, PetscReal}
-    ts = unsafe_pointer_to_objref(ctx)
+    ts = unsafe_pointer_to_objref(ctx)::TS{PetscLib}
     actual_ts = TS{PetscLib}(ts_ptr, getlib(PetscLib).age)
     u = PetscVec{PetscLib}(u_ptr)
 
