@@ -1,5 +1,103 @@
 import .LibPETSc: AbstractPetscDM, PetscDM, CDM
 
+# ============================================================================
+#   DM flavours
+# ============================================================================
+#
+# PETSc resolves a DM's flavour at runtime through DMGetType. Carrying it in the
+# Julia type instead lets ordinary dispatch pick the method, so the corner and
+# index queries stop branching on a string and each one has a single return
+# type.
+#
+# Dimension is a parameter only where a method dispatches on it. That holds for
+# DMDA and DMStag, whose creation and corner paths are written per dimension. It
+# does not hold for DMPlex: nothing dispatches on a plex's dimension, and
+# `DMPlex(petsclib, comm)` leaves it unset until the mesh is built, so a plex
+# reports it through `getdimension` instead.
+#
+# `own` records whether this wrapper is responsible for destroying the handle.
+# A DM reached from another object is borrowed: the accessor takes no reference,
+# so destroying it releases one the owner still holds, and enough of those free
+# the DM while the owner is still pointing at it.
+
+mutable struct DMDA{PetscLib, N} <: AbstractPetscDM{PetscLib}
+    ptr::CDM
+    age::Int
+    own::Bool
+end
+
+mutable struct DMStag{PetscLib, N} <: AbstractPetscDM{PetscLib}
+    ptr::CDM
+    age::Int
+    own::Bool
+end
+
+mutable struct DMPlex{PetscLib} <: AbstractPetscDM{PetscLib}
+    ptr::CDM
+    age::Int
+    own::Bool
+end
+
+owns(dm::Union{DMDA, DMStag, DMPlex}) = dm.own
+
+"""
+    narrow(dm::PetscDM; own = false)
+
+Return `dm` as the concrete type matching its PETSc flavour, so later calls
+dispatch rather than query.
+
+`LibPETSc.DMCreate` and the accessors that hand back a DM belonging to another
+object return the untyped `PetscDM`, and this is what resolves it. The result is
+a second handle onto the same PETSc object, borrowed unless `own` says
+otherwise, so destroying either invalidates the other.
+
+The return type is a `Union` wider than inference will split, which costs one
+dynamic dispatch. Narrow once outside a hot loop and pass the result through a
+function barrier.
+
+# External Links
+$(_doc_external("DM/DMGetType"))
+$(_doc_external("DM/DMGetDimension"))
+"""
+function narrow(dm::PetscDM{PetscLib}; own::Bool = false) where {PetscLib}
+    dm.ptr == C_NULL && return dm
+    # A DM straight from DMCreate has no type yet, and DMGetType raises rather
+    # than answering. It has no flavour to narrow to, so hand it back as it is.
+    type = try
+        LibPETSc.DMGetType(PetscLib, dm)
+    catch
+        return dm
+    end
+    if type == "da"
+        N = Int(LibPETSc.DMGetDimension(PetscLib, dm))
+        return DMDA{PetscLib, N}(dm.ptr, dm.age, own)
+    elseif type == "stag"
+        N = Int(LibPETSc.DMGetDimension(PetscLib, dm))
+        return DMStag{PetscLib, N}(dm.ptr, dm.age, own)
+    elseif type == "plex"
+        return DMPlex{PetscLib}(dm.ptr, dm.age, own)
+    end
+    # A flavour with no type of its own comes back unchanged.
+    return dm
+end
+
+# Already narrowed.
+narrow(dm::AbstractPetscDM; own::Bool = false) = dm
+
+# A handle built through the low-level creators arrives untyped, and calling the
+# flavour-specific API on it stays legal. Resolving it here costs a DMGetType
+# query per call, which the typed constructors and a single `narrow` both avoid.
+function _flavoured(dm::PetscDM{PetscLib}, what::AbstractString) where {PetscLib}
+    narrowed = narrow(dm)
+    narrowed isa PetscDM && throw(
+        ArgumentError(
+            "$what needs a DM whose flavour has a Julia type (DMDA, DMStag or " *
+            "DMPlex); this handle has none",
+        ),
+    )
+    return narrowed
+end
+
 # Custom display for REPL
 function Base.show(io::IO, v::AbstractPetscDM{PetscLib}) where {PetscLib}
     if v.ptr == C_NULL
@@ -32,10 +130,15 @@ Destroy a DM object and release associated resources.
 This function is typically called automatically via finalizers when the object
 is garbage collected, but can be called explicitly to free resources immediately.
 
+Does nothing on a borrowed handle, one reached from another object or produced
+by [`narrow`](@ref). Such an accessor takes no reference, so destroying its
+result releases one the owner still holds.
+
 # External Links
 $(_doc_external("DM/DMDestroy"))
 """
 function destroy(dm::AbstractPetscDM{PetscLib}) where {PetscLib}
+    owns(dm) || return nothing
     if isdestroyable(dm, PetscLib)
         LibPETSc.DMDestroy(PetscLib, dm)
     end
@@ -46,9 +149,13 @@ end
 
 
 """
-    getinfo(dm::AbstractPetscDM)
+    getinfo(dm::DMDA)
 
 Get information about a DMDA.
+
+Restricted to a `DMDA` because `DMDAGetInfo` does not check the flavour it is
+given: on a `DMStag` it fills the output buffers with whatever was in them and
+reports success, so the caller gets uninitialised values rather than an error.
 
 # Returns
 
@@ -64,7 +171,7 @@ A `NamedTuple` with the following fields:
 # External Links
 $(_doc_external("DMDA/DMDAGetInfo"))
 """
-function getinfo(dm::AbstractPetscDM{PetscLib}) where {PetscLib}
+function getinfo(dm::DMDA{PetscLib}) where {PetscLib}
 
     dim, M, N, P, m, n, p, dof, s, bx, by, bz, st = LibPETSc.DMDAGetInfo(PetscLib, dm)
     global_size   = (M,N,P)
@@ -77,91 +184,63 @@ function getinfo(dm::AbstractPetscDM{PetscLib}) where {PetscLib}
 	return (;dim,global_size,mpi_proc_size,dof,s,boundary_type,stencil_width,stencil_type)
 end
 
+getinfo(dm::PetscDM) = getinfo(_flavoured(dm, "getinfo"))
+
+# Shape the DMDA corner triples the compiler can see through. Building a Vector
+# and splatting it hides the length, so `lower` and `upper` used to infer as
+# `Any` and every call allocated.
+function _corner_tuple(xs, ys, zs, xm, ym, zm, PetscInt)
+    lower = CartesianIndex(
+        Int(xs) + 1,
+        Int(ys) + 1,
+        Int(zs) + 1,
+    )
+    local_size = (PetscInt(xm), PetscInt(ym), PetscInt(zm))
+    upper = CartesianIndex(
+        Int(xs) + Int(xm),
+        Int(ys) + Int(ym),
+        Int(zs) + Int(zm),
+    )
+    return (lower = lower, upper = upper, size = local_size)
+end
+
 """
-    lower, upper, size = getcorners_dmda(da::AbstractDMDA)
+    lower, upper, size = getcorners(da::DMDA)
 
 Returns a `NamedTuple` with the global indices (excluding ghost points) of the
 `lower` and `upper` corners as well as the `size`.
 
-
-Calls `LibPETSc.DMDAGetCorners`.
+# External Links
+$(_doc_external("DMDA/DMDAGetCorners"))
 """
-function getcorners_dmda(dm::AbstractPetscDM{PetscLib}) where {PetscLib}
+function getcorners(dm::DMDA{PetscLib}) where {PetscLib}
     PetscInt = inttype(PetscLib)
     xs, ys, zs, xm, ym, zm = LibPETSc.DMDAGetCorners(PetscLib, dm)
-    corners = [PetscInt(xs), PetscInt(ys), PetscInt(zs)]
-    local_size = [PetscInt(xm), PetscInt(ym), PetscInt(zm)]
-    
-    corners .+= 1
-    upper = corners .+ local_size .- PetscInt(1)
-
-    return (
-        lower = CartesianIndex(corners...),
-        upper = CartesianIndex(upper...),
-        size = (local_size...,),
-    )
-end
-
-
-"""
-    lower, upper, size = getcorners(da::AbstractDMDA)
-
-Returns a `NamedTuple` with the global indices (excluding ghost points) of the
-`lower` and `upper` corners as well as the `size`. 
-Works for both a DMDA and DMStag object
-"""
-function getcorners(dm::AbstractPetscDM{PetscLib}) where {PetscLib}
-    type = gettype(dm)
-    if type == "da"
-        return getcorners_dmda(dm)
-    elseif type == "stag"
-        return getcorners_dmstag(dm)
-    else
-        error("getcorners only works for DMDA and DMStag objects")
-    end
+    return _corner_tuple(xs, ys, zs, xm, ym, zm, PetscInt)
 end
 
 """
-    lower, upper, size = getghostcorners(da::AbstractDMDA)
-
-Returns a `NamedTuple` with the global indices (including ghost points) of the
-`lower` and `upper` corners as well as the `size`. 
-Works for both a `DMDA` and `DMStag` object
-"""
-function getghostcorners(dm::AbstractPetscDM{PetscLib}) where {PetscLib}
-    type = gettype(dm)
-    if type == "da"
-        return getghostcorners_dmda(dm)
-    elseif type == "stag"
-        return getghostcorners_dmstag(dm)
-    else
-        error("getghostcorners only works for DMDA and DMStag objects")
-    end
-end
-
-"""
-    lower, upper, size = getghostcorners_dmda(da::AbstractDMDA)
+    lower, upper, size = getghostcorners(da::DMDA)
 
 Returns a `NamedTuple` with the global indices (including ghost points) of the
 `lower` and `upper` corners as well as the `size` of the local part of the domain.
 
-Calls `LibPETSc.DMDAGetCorners`.
+# External Links
+$(_doc_external("DMDA/DMDAGetGhostCorners"))
 """
-function getghostcorners_dmda(dm::AbstractPetscDM{PetscLib}) where {PetscLib}
+function getghostcorners(dm::DMDA{PetscLib}) where {PetscLib}
     PetscInt = inttype(PetscLib)
     xs, ys, zs, xm, ym, zm = LibPETSc.DMDAGetGhostCorners(PetscLib, dm)
-    corners = [PetscInt(xs), PetscInt(ys), PetscInt(zs)]
-    local_size = [PetscInt(xm), PetscInt(ym), PetscInt(zm)]
-    
-    corners .+= 1
-    upper = corners .+ local_size .- PetscInt(1)
-
-    return (
-        lower = CartesianIndex(corners...),
-        upper = CartesianIndex(upper...),
-        size = (local_size...,),
-    )
+    return _corner_tuple(xs, ys, zs, xm, ym, zm, PetscInt)
 end
+
+# The suffixed spellings predate flavour dispatch and stay as forwarders, since
+# the examples still call them.
+getcorners_dmda(dm::DMDA) = getcorners(dm)
+getghostcorners_dmda(dm::DMDA) = getghostcorners(dm)
+
+getcorners(dm::PetscDM) = getcorners(_flavoured(dm, "getcorners"))
+getghostcorners(dm::PetscDM) = getghostcorners(_flavoured(dm, "getghostcorners"))
 
 
 """
@@ -273,11 +352,10 @@ by the `NTuple`s `xyzmin` and `xyzmax`. If `N` is less than the dimension of the
 $(_doc_external("DMDA/DMDASetUniformCoordinates"))
 """
 function setuniformcoordinates_dmda!(
-    da::PetscDM{PetscLib},
+    da::DMDA{PetscLib},
     xyzmin::NTuple{N, Real},
     xyzmax::NTuple{N, Real},
 ) where {N, PetscLib}
-    @assert gettype(da) == "da" "setuniformcoordinates_dmda! only works for DMDA objects"
     PetscReal = PetscLib.PetscReal
     xmin = PetscReal(xyzmin[1])
     xmax = PetscReal(xyzmax[1])
@@ -301,6 +379,11 @@ function setuniformcoordinates_dmda!(
     )
     return da
 end
+
+setuniformcoordinates_dmda!(da::PetscDM, xyzmin::NTuple, xyzmax::NTuple) =
+    setuniformcoordinates_dmda!(
+        _flavoured(da, "setuniformcoordinates_dmda!"), xyzmin, xyzmax,
+    )
 
 """
     coordinatesDMLocalVec(dm::AbstractDM)
@@ -345,7 +428,7 @@ function getlocalcoordinatearray(da::AbstractPetscDM{PetscLib}) where {PetscLib}
 end
 
 
-gettype(dm::PetscDM{PetscLib}) where {PetscLib} = LibPETSc.DMGetType(PetscLib,dm)
+gettype(dm::AbstractPetscDM{PetscLib}) where {PetscLib} = LibPETSc.DMGetType(PetscLib,dm)
 
 """
     getdimension(dm::AbstractPetscDM)
@@ -359,23 +442,25 @@ getdimension(dm::AbstractPetscDM{PetscLib}) where PetscLib = LibPETSc.DMGetDimen
 
 
 """
-    size(dm::AbstractPetscDM)
+    size(dm::DMDA)
+    size(dm::DMStag)
 
-Return the global size of a DM object as a tuple.
+Return the global size of a DM object as a tuple `(M, N, P)`, where unused
+dimensions are 1.
 
-For DMDA and DMStag, returns `(M, N, P)` where unused dimensions are 1.
+# External Links
+$(_doc_external("DMDA/DMDAGetInfo"))
+$(_doc_external("DMStag/DMStagGetGlobalSizes"))
 """
-function Base.size(dm::AbstractPetscDM{PetscLib}) where PetscLib
-    if gettype(dm) == "stag"
-        size = LibPETSc.DMStagGetGlobalSizes(PetscLib,dm)
-    elseif gettype(dm) == "da"
-        dim, M,N,P,_ = LibPETSc.DMDAGetInfo(PetscLib, dm)
-        size = (M,N,P)
-    else
-        error("Size not defined for DMStag objects. Use getinfo(dm).global_size instead.")
-    end
-    return size
+function Base.size(dm::DMDA{PetscLib}) where {PetscLib}
+    _, M, N, P, _ = LibPETSc.DMDAGetInfo(PetscLib, dm)
+    return (M, N, P)
 end
+
+Base.size(dm::DMStag{PetscLib}) where {PetscLib} =
+    LibPETSc.DMStagGetGlobalSizes(PetscLib, dm)
+
+Base.size(dm::PetscDM) = size(_flavoured(dm, "size"))
 
 #=
 """

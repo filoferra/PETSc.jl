@@ -35,6 +35,7 @@ include("ksp.jl")           # autowrapped
 include("snes.jl")          # autowrapped
 include("snes_helpers.jl")  # small helper tests for SNES return-style wrappers
 include("ts.jl")            # high-level TS interface
+include("dm_types.jl")      # typed DM hierarchy and borrowed handles
 include("dmda.jl")          # autowrapped
 include("dmstag.jl")        # autowrapped
 include("dmplex.jl")        # DMPlex tests

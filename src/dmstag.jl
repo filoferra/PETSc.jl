@@ -99,8 +99,8 @@ function DMStag(
     end
    # ref_points_per_proc = to_petscint_tuple(ref_points_per_proc, PetscInt)  
 
-    if N==1  
-        da = LibPETSc.DMStagCreate1d(petsclib,
+    if N==1
+        handle = LibPETSc.DMStagCreate1d(petsclib,
                                    comm, 
                                    boundary_type[1], 
                                    PetscInt(global_dim[1]), 
@@ -111,7 +111,7 @@ function DMStag(
                                    ref_points_per_proc[1]
                                    )
     elseif N==2
-        da =   LibPETSc.DMStagCreate2d(
+        handle =   LibPETSc.DMStagCreate2d(
                                     petsclib,
                                     comm,
                                     boundary_type[1], boundary_type[2],
@@ -125,7 +125,7 @@ function DMStag(
                                     ref_points_per_proc[1], ref_points_per_proc[2]
                                 )                                    
      elseif N==3
-        da =   LibPETSc.DMStagCreate3d(
+        handle =   LibPETSc.DMStagCreate3d(
                                     petsclib,
                                     comm,
                                     boundary_type[1], boundary_type[2], boundary_type[3],
@@ -138,8 +138,12 @@ function DMStag(
                                     stencil_type,
                                     PetscInt(stencil_width),
                                     ref_points_per_proc[1], ref_points_per_proc[2], ref_points_per_proc[3]
-                                )                    
+                                )
     end
+
+    # The creator hands back the untyped handle; the flavour and dimension are
+    # known here from the arguments, so no DMGetType query is needed.
+    da = DMStag{PetscLib, N}(handle.ptr, handle.age, true)
 
     if !isempty(prefix)
         # options prefix
@@ -169,16 +173,14 @@ end
 
 
 function DMStag(
-    dm::AbstractPetscDM{PetscLib},
+    dm::DMStag{PetscLib, N},
     dof_per_node::Union{NTuple{2,Int},NTuple{3,Int},NTuple{4,Int}},
     dmsetfromoptions = true,
     dmsetup = true,
     options...,
-) where {PetscLib}
-    @assert  PETSc.gettype(dm) == "stag" "DM must be of type DMStag"
+) where {PetscLib, N}
     petsclib = getlib(PetscLib)
     PetscInt = petsclib.PetscInt
-    dmnew = PetscDM{PetscLib}(C_NULL, petsclib.age)
 
     s = size(dof_per_node,1)
 
@@ -190,7 +192,7 @@ function DMStag(
 
 
     #with(dm.opts) do
-    dmnew =  LibPETSc.DMStagCreateCompatibleDMStag(
+    handle =  LibPETSc.DMStagCreateCompatibleDMStag(
                     PetscLib,
                     dm,
                     PetscInt(dof_per_node_C[1]),
@@ -199,6 +201,9 @@ function DMStag(
                     PetscInt(dof_per_node_C[4]),
                     )
     #end
+
+    # A compatible DMStag shares the source's dimension, and the caller owns it.
+    dmnew = DMStag{PetscLib, N}(handle.ptr, handle.age, true)
 
     #=
     dmsetfromoptions && setfromoptions!(dmnew)
@@ -229,11 +234,10 @@ end
 Sets uniform coordinates for the DMStag `dm` in the range specified by `xyzmin` and `xyzmax`.
 """
 function setuniformcoordinates_stag!(
-    dm::AbstractPetscDM{PetscLib},
+    dm::DMStag{PetscLib},
     xyzmin::NTuple,
     xyzmax::NTuple,
     ) where {PetscLib}
-    @assert PETSc.gettype(dm) == "stag" "DM must be of type DMStag"
     PetscInt = PetscLib.PetscInt
     PetscScalar = PetscLib.PetscScalar
 
@@ -267,7 +271,7 @@ function setuniformcoordinates_stag!(
 end
 
 """
-    corners = getcorners_dmstag(dm::AbstractPetscDM)
+    corners = getcorners(dm::DMStag)
 
 Returns a `NamedTuple` with the global indices (excluding ghost points) of the
 `lower` and `upper` corners as well as the `size`. Also included is `nextra` of
@@ -276,8 +280,7 @@ the number of extra partial elements in each direction.
 # External Links
 $(_doc_external("DMDA/DMStagGetCorners"))
 """
-function getcorners_dmstag(dm::AbstractPetscDM{PetscLib}) where {PetscLib}
-    @assert PETSc.gettype(dm) == "stag" "DM must be of type DMStag"
+function getcorners(dm::DMStag{PetscLib}) where {PetscLib}
     x, y, z, m, n, p, nExtrax, nExtray, nExtraz = LibPETSc.DMStagGetCorners(PetscLib, dm)
     return (
         lower  = CartesianIndex(x + 1, y + 1, z + 1),
@@ -289,17 +292,15 @@ end
 
 
 """
-    corners = getghostcorners_dmstag(dm::AbstractPetscDM)
+    corners = getghostcorners(dm::DMStag)
 
 Returns a `NamedTuple` with the global indices (including ghost points) of the
-`lower` and `upper` corners as well as the `size`. Also included is `nextra` of
-the number of extra partial elements in each direction.
+`lower` and `upper` corners as well as the `size`.
 
 # External Links
-$(_doc_external("DMDA/DMStagGetCorners"))
+$(_doc_external("DMDA/DMStagGetGhostCorners"))
 """
-function getghostcorners_dmstag(dm::AbstractPetscDM{PetscLib}) where {PetscLib}
-    @assert PETSc.gettype(dm) == "stag" "DM must be of type DMStag"
+function getghostcorners(dm::DMStag{PetscLib}) where {PetscLib}
     x, y, z, m, n, p = LibPETSc.DMStagGetGhostCorners(PetscLib, dm)
     return (
         lower = CartesianIndex(x + 1, y + 1, z + 1),
@@ -307,6 +308,11 @@ function getghostcorners_dmstag(dm::AbstractPetscDM{PetscLib}) where {PetscLib}
         size  = (m, n, p),
     )
 end
+
+# The suffixed spellings predate flavour dispatch and stay as forwarders, since
+# the examples still call them.
+getcorners_dmstag(dm::DMStag) = getcorners(dm)
+getghostcorners_dmstag(dm::DMStag) = getghostcorners(dm)
 
 
 """
@@ -334,8 +340,7 @@ possibly negative ghost indices. This function handles the conversion automatica
 """
 function local_indices_dmstag end
 
-function local_indices_dmstag(dm::PetscDM{PetscLib}) where {PetscLib}
-    @assert PETSc.gettype(dm) == "stag" "DM must be of type DMStag" 
+function local_indices_dmstag(dm::DMStag{PetscLib}) where {PetscLib}
     # In Julia, indices in arrays start @ 1, whereas they can go negative in C
     x, y, z, m, n, p, nx, ny, nz = LibPETSc.DMStagGetCorners(PetscLib, dm)
     gx, gy, gz, _, _, _ = LibPETSc.DMStagGetGhostCorners(PetscLib, dm)
@@ -387,8 +392,7 @@ handles the conversion automatically.
 
 [`local_indices_dmstag`](@ref) for the equivalent indices into a ghosted, local array.
 """
-function global_indices_dmstag(dm::PetscDM{PetscLib}) where {PetscLib}
-    @assert PETSc.gettype(dm) == "stag" "DM must be of type DMStag"
+function global_indices_dmstag(dm::DMStag{PetscLib}) where {PetscLib}
     x, y, z, m, n, p, nx, ny, nz = LibPETSc.DMStagGetCorners(PetscLib, dm)
 
     return (
@@ -407,14 +411,40 @@ function global_indices_dmstag(dm::PetscDM{PetscLib}) where {PetscLib}
 end
 
 """
-    slot::Int = DMStagDOF_Slot(dm::PetscDM{PetscLib}, loc::LibPETSc.DMStagStencilLocation, dof::Int) 
+    slot::Int = DMStagDOF_Slot(dm::DMStag{PetscLib}, loc::LibPETSc.DMStagStencilLocation, dof::Int) 
 
 Returns the location `slot` for a degree of freedom `dof` at a given stencil location `loc` in the DMStag `dm`.
 Note that the returned `slot` is 1-based for Julia compatibility.    
 """
-function DMStagDOF_Slot(dm::PetscDM{PetscLib}, loc::LibPETSc.DMStagStencilLocation, dof::Int) where {PetscLib} 
-    @assert PETSc.gettype(dm) == "stag" "DM must be of type DMStag" 
-
+function DMStagDOF_Slot(dm::DMStag{PetscLib}, loc::LibPETSc.DMStagStencilLocation, dof::Int) where {PetscLib}
     slot = LibPETSc.DMStagGetLocationSlot(getlib(PetscLib), dm, loc, PetscLib.PetscInt(dof))
     return slot+1
 end
+
+# ============================================================================
+#   Untyped handles
+# ============================================================================
+#
+# A DM built through the low-level creators arrives as a bare `PetscDM`, and the
+# DMStag API stays callable on it. Each of these resolves the flavour once and
+# re-dispatches, which is what the typed constructors and `narrow` save.
+
+setuniformcoordinates_stag!(dm::PetscDM, xyzmin::NTuple, xyzmax::NTuple) =
+    setuniformcoordinates_stag!(
+        _flavoured(dm, "setuniformcoordinates_stag!"), xyzmin, xyzmax,
+    )
+
+getcorners_dmstag(dm::PetscDM) = getcorners(_flavoured(dm, "getcorners_dmstag"))
+getghostcorners_dmstag(dm::PetscDM) =
+    getghostcorners(_flavoured(dm, "getghostcorners_dmstag"))
+
+local_indices_dmstag(dm::PetscDM) =
+    local_indices_dmstag(_flavoured(dm, "local_indices_dmstag"))
+global_indices_dmstag(dm::PetscDM) =
+    global_indices_dmstag(_flavoured(dm, "global_indices_dmstag"))
+
+DMStagDOF_Slot(dm::PetscDM, loc::LibPETSc.DMStagStencilLocation, dof::Int) =
+    DMStagDOF_Slot(_flavoured(dm, "DMStagDOF_Slot"), loc, dof)
+
+DMStag(dm::PetscDM, dof_per_node::NTuple, args...; options...) =
+    DMStag(_flavoured(dm, "DMStag"), dof_per_node, args...; options...)

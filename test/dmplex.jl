@@ -349,7 +349,7 @@ for petsclib in PETSc.petsclibs
         dm = PETSc.DMPlex(petsclib, _TC;
                           dm_plex_dim=2, dm_plex_simplex=0,
                           dm_plex_box_faces="4,4")
-        @test dm isa LibPETSc.PetscDM
+        @test dm isa PETSc.DMPlex
         @test convert(Ptr{Cvoid}, dm) != C_NULL
         @test LibPETSc.DMGetType(petsclib, dm) == "plex"
         @test LibPETSc.DMGetDimension(petsclib, dm) == 2
@@ -360,19 +360,19 @@ for petsclib in PETSc.petsclibs
     # ── High-level: explicit box constructor ─────────────────────────────────
     @testset "DMPlex explicit box constructor" begin
         dm_hex = PETSc.DMPlex(petsclib, _TC, 2, false, [4, 4])
-        @test dm_hex isa LibPETSc.PetscDM
+        @test dm_hex isa PETSc.DMPlex
         @test convert(Ptr{Cvoid}, dm_hex) != C_NULL
         @test LibPETSc.DMGetDimension(petsclib, dm_hex) == 2
 
         if real(PetscScalar_t) != Float32
             dm_tri = PETSc.DMPlex(petsclib, _TC, 2, true, [4, 4])
-            @test dm_tri isa LibPETSc.PetscDM
+            @test dm_tri isa PETSc.DMPlex
             @test LibPETSc.DMGetDimension(petsclib, dm_tri) == 2
             PETSc.destroy(dm_tri)
         end
 
         dm_3d = PETSc.DMPlex(petsclib, _TC, 3, false, [2, 2, 2])
-        @test dm_3d isa LibPETSc.PetscDM
+        @test dm_3d isa PETSc.DMPlex
         @test LibPETSc.DMGetDimension(petsclib, dm_3d) == 3
 
         PETSc.destroy(dm_hex)
@@ -398,7 +398,7 @@ for petsclib in PETSc.petsclibs
         # On COMM_SELF (1 rank), DMPlexDistribute returns a DM with NULL ptr
         # (no redistribution needed).  We just check it does not throw.
         dm_par = @test_nowarn PETSc.plexdistribute!(dm; overlap = 0)
-        @test dm_par isa LibPETSc.PetscDM
+        @test dm_par isa LibPETSc.AbstractPetscDM
 
         # destroy skips a NULL pointer, so this is a no-op on one rank and
         # frees the redistributed mesh on several.
@@ -561,7 +561,7 @@ for petsclib in PETSc.petsclibs
     @testset "dmclone" begin
         dm = PETSc.DMPlex(petsclib, _TC, 2, false, [4, 4])
         dm2 = PETSc.dmclone(dm)
-        @test dm2 isa LibPETSc.PetscDM
+        @test dm2 isa PETSc.DMPlex
         @test convert(Ptr{Cvoid}, dm2) != C_NULL
         # Clone has distinct pointer but same topology
         @test convert(Ptr{Cvoid}, dm2) != convert(Ptr{Cvoid}, dm)
@@ -576,7 +576,7 @@ for petsclib in PETSc.petsclibs
     @testset "dm_get_coarse (no hierarchy)" begin
         dm = PETSc.DMPlex(petsclib, _TC, 2, false, [4, 4])
         cdm = PETSc.dm_get_coarse(dm)
-        @test cdm isa LibPETSc.PetscDM
+        @test cdm isa LibPETSc.AbstractPetscDM
         @test convert(Ptr{Cvoid}, cdm) == C_NULL
 
         # cdm is borrowed from dm (and NULL here), so only dm is destroyed.

@@ -343,7 +343,10 @@ function getDM(
     snes::AbstractPetscSNES{PetscLib},
 ) where {PetscLib}
     dmda = LibPETSc.SNESGetDM(getlib(PetscLib), snes)
-    return dmda
+    # The DM belongs to the SNES, so the caller gets a borrowed handle. Narrowing
+    # here puts the flavour in the type; the result is a Union, so pass it
+    # through a function barrier before a hot loop.
+    return narrow(dmda; own = false)
 end
 
 

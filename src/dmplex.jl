@@ -287,8 +287,9 @@ function DMPlex(
 ) where {PetscLib}
     check_initialized(getlib(PetscLib))
 
-    dm = LibPETSc.DMCreate(petsclib, comm)
-    LibPETSc.DMSetType(petsclib, dm, "plex")
+    handle = LibPETSc.DMCreate(petsclib, comm)
+    LibPETSc.DMSetType(petsclib, handle, "plex")
+    dm = DMPlex{PetscLib}(handle.ptr, handle.age, true)
 
     if !isempty(prefix)
         LibPETSc.DMSetOptionsPrefix(petsclib, dm, prefix)
@@ -371,7 +372,7 @@ function DMPlex(
     upper_v       = collect(PetscReal.(upper))
     periodicity_v = collect(periodicity)
 
-    dm = LibPETSc.DMPlexCreateBoxMesh(
+    handle = LibPETSc.DMPlexCreateBoxMesh(
         petsclib, comm,
         PetscInt(dim),
         LibPETSc.PetscBool(simplex),
@@ -380,6 +381,7 @@ function DMPlex(
         PetscInt(localize_height),
         LibPETSc.PetscBool(sparse_localize),
     )
+    dm = DMPlex{PetscLib}(handle.ptr, handle.age, true)
 
     if !isempty(prefix)
         LibPETSc.DMSetOptionsPrefix(petsclib, dm, prefix)
@@ -438,7 +440,9 @@ function plexdistribute!(
     dm_par = LibPETSc.PetscDM(petsclib)
     LibPETSc.DMPlexDistribute(petsclib, dm, PetscInt(overlap),
                               Ptr{LibPETSc.PetscSF}(C_NULL), dm_par)
-    return dm_par
+    # The redistributed mesh is a new object the caller owns. On one rank PETSc
+    # returns a null handle, which stays untyped.
+    return narrow(dm_par; own = true)
 end
 
 
@@ -863,7 +867,8 @@ Return a new DM that is a clone of `dm` (same topology, no fields or DS).
 function dmclone(dm::AbstractPetscDM{PetscLib}) where {PetscLib}
     newdm = LibPETSc.PetscDM(getlib(PetscLib))
     LibPETSc.DMClone(getlib(PetscLib), dm, newdm)
-    return newdm
+    # A clone is a new object the caller owns, and it shares the source flavour.
+    return narrow(newdm; own = true)
 end
 
 """
@@ -1252,7 +1257,8 @@ LibPETSc.@for_petsc function dm_get_coarse(dm::AbstractPetscDM{$PetscLib})
     petsclib = getlib($PetscLib)
     cdm = LibPETSc.PetscDM(petsclib)
     LibPETSc.DMGetCoarseDM(petsclib, dm, cdm)
-    return cdm
+    # The coarse DM belongs to the hierarchy, so the caller gets it borrowed.
+    return narrow(cdm; own = false)
 end
 
 """

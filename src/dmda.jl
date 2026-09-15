@@ -83,8 +83,8 @@ function DMDA(
         end
     end
     
-    if N==1  
-        da = LibPETSc.DMDACreate1d(petsclib,
+    if N==1
+        handle = LibPETSc.DMDACreate1d(petsclib,
                                    comm, 
                                    boundary_type[1], 
                                    PetscInt(global_dim[1]), 
@@ -93,7 +93,7 @@ function DMDA(
                                    ref_points_per_proc[1]
                                    )
     elseif N==2
-        da =   LibPETSc.DMDACreate2d(
+        handle =   LibPETSc.DMDACreate2d(
                                     petsclib,
                                     comm,
                                     boundary_type[1], boundary_type[2],
@@ -105,7 +105,7 @@ function DMDA(
                                     ref_points_per_proc[1], ref_points_per_proc[2]
                                 )                                    
      elseif N==3
-        da =   LibPETSc.DMDACreate3d(
+        handle =   LibPETSc.DMDACreate3d(
                                     petsclib,
                                     comm,
                                     boundary_type[1], boundary_type[2], boundary_type[3],
@@ -115,8 +115,12 @@ function DMDA(
                                     PetscInt(dof_per_node),
                                     PetscInt(stencil_width),
                                     ref_points_per_proc[1], ref_points_per_proc[2], ref_points_per_proc[3]
-                                )                    
+                                )
     end
+
+    # The creator hands back the untyped handle; the flavour and dimension are
+    # known here from the arguments, so no DMGetType query is needed.
+    da = DMDA{PetscLib, N}(handle.ptr, handle.age, true)
 
     if !isempty(prefix)
         # options prefix
@@ -145,14 +149,17 @@ function DMDA(
 end
 
 """
-    ndofs(da::AbstractPetscDM)
+    ndofs(da::DMDA)
 
 Return the number of dofs in for `da`
+
+Restricted to a `DMDA` for the same reason as [`getinfo`](@ref): `DMDAGetDof`
+answers on a `DMStag` without checking, and the answer is uninitialised memory.
 
 # External Links
 $(_doc_external("DMDA/DMDAGetDof"))
 """
-function ndofs(da::AbstractPetscDM{PetscLib}) where PetscLib
+function ndofs(da::DMDA{PetscLib}) where PetscLib
     PetscInt = PetscLib.PetscInt
     ndof = [PetscInt(0)]
 
@@ -203,10 +210,9 @@ end
 
 Returns the linear indices associated with the degrees of freedom own by this MPI rank embedded in the ghost index space for the `dmda`
 """
-function localinteriorlinearindex(da::AbstractPetscDM{PetscLib}) where PetscLib
+function localinteriorlinearindex(da::DMDA{PetscLib}) where PetscLib
     # Determine the indices of the linear indices of the local part of the
     # matrix we own
-    @assert gettype(da) == "da" 
     ghost_corners = PETSc.getghostcorners(da)
     corners = PETSc.getcorners(da)
 
@@ -255,7 +261,7 @@ Returns a `NamedTuple`:
     - reshape `col_colors_mat` to `(dof, nx_g, ny_g, nz_g)`,
     - decode `z_owned` in the `perturb_cols` loop.
 """
-function dmda_star_fd_coloring(petsclib::PetscLib, da::AbstractPetscDM{PetscLib}) where PetscLib
+function dmda_star_fd_coloring(petsclib::PetscLib, da::DMDA{PetscLib}) where PetscLib
     CPetscInt = petsclib.PetscInt
 
     # ── ISColoring ────────────────────────────────────────────────────────────
@@ -391,3 +397,12 @@ function dmda_star_fd_coloring(petsclib::PetscLib, da::AbstractPetscDM{PetscLib}
         local_rows,
     )
 end
+# A DM built through the low-level creators arrives untyped; resolve it here so
+# the DMDA API stays callable on it.
+localinteriorlinearindex(da::PetscDM) =
+    localinteriorlinearindex(_flavoured(da, "localinteriorlinearindex"))
+
+ndofs(da::PetscDM) = ndofs(_flavoured(da, "ndofs"))
+
+dmda_star_fd_coloring(petsclib, da::PetscDM) =
+    dmda_star_fd_coloring(petsclib, _flavoured(da, "dmda_star_fd_coloring"))
