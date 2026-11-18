@@ -25,8 +25,7 @@ NMGLEVELS=${5:-4}
 NCOARSE=${6:-16}
 
 if [ ${NCOARSE} -gt ${NTASKS} ]; then
-  ec
-  ho "ERROR: NCOARSE=${NCOARSE} > NTASKS=${NTASKS}"
+  echo "ERROR: NCOARSE=${NCOARSE} > NTASKS=${NTASKS}"
   exit 1
 fi
 

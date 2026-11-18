@@ -1,0 +1,1 @@
+-Nx 1025 -Ny 1025 -Nz 1025 -pc_mg_levels 6 -mg_coarse_pc_telescope_reduction_factor 32

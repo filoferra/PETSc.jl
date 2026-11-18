@@ -163,9 +163,11 @@ The benchmark is [`ex45.jl`](https://github.com/JuliaParallel/PETSc.jl/blob/main
 
 - **jll**: `ex45.jl` with `PETSc_jll` through MPItrampoline (setup 2),
 - **local lib**: `ex45.jl` with a PETSc built on the cluster (setup 3),
-- **native**: [`ex45_julia.c`](https://github.com/JuliaParallel/PETSc.jl/blob/main/examples/scalability_tests/ex45_julia.c), the same program in C, linked against the same local PETSc.
+- **native**: [`ex45_julia.c`](https://github.com/JuliaParallel/PETSc.jl/blob/main/scripts/hpc/ex45_julia.c), the same program in C, linked against the same local PETSc.
 
 The runs below are on CSCS Daint (GH200 nodes, CPUs only, 64 ranks per node spread over the four Grace CPUs, Cray MPICH 8.1.32, PETSc 3.25.6 with 64-bit indices). Times are the median of three runs; the spread between runs was at most 3%.
+
+The job scripts, solver options and the parser and plot for these runs are in [`scripts/hpc`](https://github.com/JuliaParallel/PETSc.jl/tree/main/scripts/hpc): `daint/run_point.sh` runs the three variants of one point in one job, and `parse_runs.jl` turns the logs into a CSV for `plot_weak_scaling.jl`.
 
 | Ranks [nodes] | Grid | Iterations | KSPSolve native | local lib | jll | Total in PETSc, native / local lib / jll |
 |---|---|---|---|---|---|---|

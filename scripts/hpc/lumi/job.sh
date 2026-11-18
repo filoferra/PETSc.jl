@@ -5,8 +5,9 @@
 #SBATCH --exclusive
 #SBATCH --mem=200000M
 #SBATCH --time=0-00:10:00
-#SBATCH --account=??? # add your account here
-# --ntasks, --nodes, --ntasks-per-node, --output passed by submit_scaling.sh
+# --ntasks, --nodes, --ntasks-per-node, --output passed by submit_scaling.sh; pass the account
+# with SBATCH_ACCOUNT. JULIA is the julia binary, PROJECT the environment with PETSc.jl
+# (MPItrampoline selected), EX45 the example.
 
 module --force purge
 module load CrayEnv
@@ -14,9 +15,7 @@ module load craype
 module load gcc-native/13.2
 module load cray-mpich/8.1.32
 
-export HOME=/users/kausbori
-export JULIA_DEPOT_PATH=/users/kausbori/.julia
-export MPITRAMPOLINE_LIB=/users/kausbori/mpiwrapper/lib64/libmpiwrapper.so
+export MPITRAMPOLINE_LIB=${MPITRAMPOLINE_LIB:-$HOME/mpiwrapper/lib64/libmpiwrapper.so}
 export JULIA_PKG_PRECOMPILE_AUTO=0
 export JULIA_NUM_THREADS=1
 export JULIA_CPU_TARGET="generic"
@@ -29,13 +28,15 @@ export FI_CXI_DISABLE_CQ_HUGETLB=1
 export MPICH_MAX_THREAD_SAFETY=single
 export LD_LIBRARY_PATH=/opt/cray/pe/mpich/8.1.32/ofi/cray/17.0/lib:$LD_LIBRARY_PATH
 
-JULIA=/users/kausbori/.julia/juliaup/julia-1.12.6+0.x64.linux.gnu/bin/julia
+JULIA=${JULIA:-julia}
+PROJECT=${PROJECT:-$HOME/PETSc_jl_scalability}
+EX45=${EX45:-$HOME/PETSc.jl/examples/dmda/ex45.jl}
 
 echo "=== Scaling run: ntasks=${NTASKS}, Nx=${NX}, Ny=${NY}, Nz=${NZ}, mg_levels=${NMGLEVELS}, ncoarse=${NCOARSE}, reduction_factor=${REDUCTION_FACTOR} ==="
 echo "=== Running on ${SLURM_NNODES} nodes, ${SLURM_NTASKS} tasks, $(( SLURM_NTASKS / SLURM_NNODES )) tasks/node ==="
 
 echo "=== MPI diagnostic ==="
-srun -n 1 $JULIA --project=/users/kausbori/PETSc_jl_scalability -e '
+srun -n 1 $JULIA --project=$PROJECT -e '
 using MPI
 MPI.Init()
 println("MPI library: ", MPI.libmpi)
@@ -46,7 +47,7 @@ echo "=== End MPI diagnostic ==="
 
 echo "MPI run started at $(date)"
 srun -n ${NTASKS} $JULIA --heap-size-hint=1G \
-    --project=/users/kausbori/PETSc_jl_scalability ex45.jl \
+    --project=$PROJECT $EX45 \
   -Nx ${NX} \
   -Ny ${NY} \
   -Nz ${NZ} \

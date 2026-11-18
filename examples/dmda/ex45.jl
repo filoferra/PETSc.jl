@@ -191,7 +191,7 @@ function solve_ex45(N = 7; Nx = N, Ny = N, Nz = N, opts...)
     axpy!(-1, u, err)
     L2, global_max = sqrt(V) * norm(err, 2), norm(err, Inf)
 
-    # Read by examples/scalability_tests/parse_scaling.jl; flushed so it comes
+    # Read by scripts/hpc/parse_runs.jl; flushed so it comes
     # before PETSc's -log_view summary
     if MPI.Comm_rank(comm) == 0
         @printf("""
