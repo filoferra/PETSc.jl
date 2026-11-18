@@ -9,7 +9,7 @@
 
 const COLUMNS = ["file", "variant", "ranks", "nodes", "grid", "levels", "smoother", "coarse",
                  "iterations", "L2", "kspsolve", "pcsetup", "petsc_time", "setup", "solve",
-                 "aypx_ratio"]
+                 "aypx_ratio", "setup_solve"]
 
 """
     first_capture(rx, text)
@@ -63,6 +63,16 @@ option took effect. PETSc ignores a misspelled `-mg_coarse_telescope_reduction_f
 coarse_solve(text) = occursin("-mg_coarse_pc_telescope_reduction_factor", text) ? "reduced" : "all ranks"
 
 """
+    setup_and_solve(setup, solve)
+
+Time for assembling the operators, the multigrid setup and the solve [s]. ex45.jl
+times setup and solve separately; ex45_julia.c prints no setup time, and its solve
+time includes the setup, which KSPSolve does first.
+"""
+setup_and_solve(setup, solve) =
+    isempty(setup) ? solve : string(round(parse(Float64, setup) + parse(Float64, solve); digits = 6))
+
+"""
     parse_run(file)
 
 The CSV fields of one run, in the order of `COLUMNS`, or `nothing` when `file` has no
@@ -73,6 +83,8 @@ function parse_run(file)
     ranks = first_capture(r"with (\d+) process(?:es)?, by", text)
     isempty(ranks) && return nothing
     main = log_stage(text, "0: Main Stage")
+    setup = first_capture(r"Setup time:\s+(\S+)", text)
+    solve = first_capture(r"^Solve time:\s+(\S+)"m, text)
     return [basename(file), variant(text), ranks,
             first_capture(r"job \d+: (\d+) nodes", text),   # written by daint/run.sh
             first_capture(r"-Nx (\d+)", text),
@@ -84,10 +96,11 @@ function parse_run(file)
             event_column(main, "KSPSolve", 3),
             event_column(main, "PCSetUp", 3),
             first_capture(r"^Time \(sec\):\s+(\S+)"m, text),
-            first_capture(r"Setup time:\s+(\S+)", text),
-            first_capture(r"^Solve time:\s+(\S+)"m, text),
+            setup,
+            solve,
             # VecAYPX doesn't communicate, so a ratio well above 1.2 means some cores ran slow
-            event_column(log_stage(text, "1: MG Apply"), "VecAYPX", 4)]
+            event_column(log_stage(text, "1: MG Apply"), "VecAYPX", 4),
+            setup_and_solve(setup, solve)]
 end
 
 """

@@ -1,12 +1,19 @@
 # ============================================================================
 #   Weak-scaling plot of ex45 runs
 # ============================================================================
-# Plots KSPSolve time against the number of ranks for each variant in a CSV written by
-# parse_runs.jl: the median as a line, every run as a small marker.
+# Plots a time column (default KSPSolve) against the number of ranks for each variant in a
+# CSV written by parse_runs.jl: the median as a line, the range of the runs shaded, every
+# run as a small marker.
 #
-# Usage: julia --project=. plot_weak_scaling.jl runs.csv out.png "title"
+# Usage: julia --project=. plot_weak_scaling.jl runs.csv out.png "title" [column]
+# column: kspsolve, setup_solve (time to solution), or petsc_time (PetscInitialize to
+# PetscFinalize, with Julia's compilation)
 
 using CairoMakie, DelimitedFiles, Statistics
+
+const YLABEL = Dict("kspsolve" => "KSPSolve [s]",
+                    "setup_solve" => "setup + solve [s]",
+                    "petsc_time" => "PetscInitialize to PetscFinalize [s]")
 
 const STYLE = Dict("native" => (:black, :circle, "native C"),
                    "local" => (:tomato, :diamond, "PETSc.jl (local lib)"),
@@ -34,16 +41,17 @@ function tick_label(runs, n)
 end
 
 """
-    plot_weak_scaling(runs, title)
+    plot_weak_scaling(runs, title; column = "kspsolve")
 
-Figure with the median and the single-run KSPSolve times per variant against ranks.
+Figure with the median, the range (shaded) and the single-run times of `column` per
+variant against ranks.
 """
-function plot_weak_scaling(runs, title)
+function plot_weak_scaling(runs, title; column = "kspsolve")
     ranks = parse.(Int, runs["ranks"])
-    ksp = parse.(Float64, runs["kspsolve"])
+    t = parse.(Float64, runs[column])
     sizes = sort(unique(ranks))
     fig = Figure(size = (800, 500), fontsize = 14)
-    ax = Axis(fig[1, 1]; title, xscale = log2, ylabel = "KSPSolve [s]",
+    ax = Axis(fig[1, 1]; title, xscale = log2, ylabel = get(YLABEL, column, column),
               xlabel = "MPI ranks, [nodes], (global grid)",
               xticks = (sizes, [tick_label(runs, n) for n in sizes]),
               xminorticksvisible = false, yminorticksvisible = false)
@@ -51,9 +59,11 @@ function plot_weak_scaling(runs, title)
         color, marker, label = STYLE[v]
         sel = runs["variant"] .== v
         any(sel) || continue
-        scatter!(ax, ranks[sel], ksp[sel]; color = (color, 0.5), marker, markersize = 7)
         n = sort(unique(ranks[sel]))
-        med = [median(ksp[sel .& (ranks .== m)]) for m in n]
+        runs_at(m) = t[sel .& (ranks .== m)]
+        band!(ax, n, minimum.(runs_at.(n)), maximum.(runs_at.(n)); color = (color, 0.15))
+        scatter!(ax, ranks[sel], t[sel]; color = (color, 0.5), marker, markersize = 7)
+        med = median.(runs_at.(n))
         scatterlines!(ax, n, med; color, marker, markersize = 12, linewidth = 2, label)
     end
     ylims!(ax, 0, nothing)
@@ -62,6 +72,7 @@ function plot_weak_scaling(runs, title)
 end
 
 if abspath(PROGRAM_FILE) == (@__FILE__)
-    csv, out, title = ARGS
-    save(out, plot_weak_scaling(read_runs(csv), title); px_per_unit = 2)
+    csv, out, title = ARGS[1:3]
+    column = get(ARGS, 4, "kspsolve")
+    save(out, plot_weak_scaling(read_runs(csv), title; column); px_per_unit = 2)
 end
