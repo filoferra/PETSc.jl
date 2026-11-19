@@ -165,6 +165,9 @@ function solve_ex45(N = 7; Nx = N, Ny = N, Nz = N, opts...)
         petsclib, comm, ntuple(_ -> PETSc.DM_BOUNDARY_NONE, 3), toint.((Nx, Ny, Nz)), 1;
         stencil_width = 1, stencil_type = PETSc.DMDA_STENCIL_STAR, opts...,
     )
+    # The CSR call below sets every entry, so the DM only preallocates the
+    # matrix and skips filling its stencil with zeros first
+    PETSc.set_matrix_preallocate_only!(da, true)
     ksp = PETSc.KSP(da; opts...)
 
     # Called once per multigrid level, with that level's DM. Of the two CSR

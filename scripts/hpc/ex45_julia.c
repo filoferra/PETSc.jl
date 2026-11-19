@@ -74,6 +74,9 @@ int main(int argc, char **argv)
                          PETSC_DECIDE, PETSC_DECIDE, PETSC_DECIDE,
                          1, 1, NULL, NULL, NULL, &da));
   PetscCall(DMSetFromOptions(da));
+  /* ComputeMatrix sets every entry, so the DM only preallocates the matrix and
+     skips filling its stencil with zeros first, as ex45.jl does */
+  PetscCall(DMSetMatrixPreallocateOnly(da, PETSC_TRUE));
   PetscCall(DMSetUp(da));
   PetscCall(KSPSetDM(ksp, da));
   PetscCall(KSPSetComputeInitialGuess(ksp, ComputeInitialGuess, &ctx));
